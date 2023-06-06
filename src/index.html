@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="/dist/output.css" rel="stylesheet">
+</head>
+
+<body class="flex flex-col lg:flex-row bg-[#fbfaff] text-black">
+  <div class="relative flex flex-col w-full lg:w-[45rem] gap-y-6 h-screen min-h-[40rem] justify-center p-8">
+    <h1 class="text-3xl">PPI Changer</h1>
+
+    <div>
+      <label for="ppi" class="block text-sm font-medium mb-2">PPI</label>
+      <input type="text" id="ppi"
+        class="py-3 px-4 block w-full border-gray-200 rounded-md shadow-sm border text-sm focus:border-blue-500 focu s:ring-blue-500"
+        placeholder="Default: 300">
+    </div>
+
+    <div>
+      <label for="files" class="block text-sm font-medium mb-2">Choose file</label>
+      <input type="file" name="files" id="files" accept=".jpg,.jpeg,.png,.bmp,.tif,.tiff" class="block w-full border border-gray-200 shadow-sm rounded-md text-sm focus:z-10 focus:border-blue-500 focus:ring-blue-500
+      file:bg-transparent file:border-0
+      file:bg-gray-100 file:mr-4
+      file:py-3 file:px-4">
+    </div>
+
+    <button type="button" id="button"
+      class="w-full py-3 px-4 inline-flex justify-center items-center gap-2 rounded-md border font-medium bg-white text-gray-700 shadow-sm align-middle hover:bg-gray-50
+      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-600 transition-all text-sm">
+      Apply
+    </button>
+
+    <div class="flex absolute bottom-4 left-4">
+      <a href="https://github.com/skearya" class="flex items-center space-x-2">
+        <img width="25" height="25" src="https://img.icons8.com/ios-filled/50/github.png" alt="github" />
+        <h1 class="text-black text-opacity-60">skearya</h1>
+      </a>
+    </div>
+  </div>
+
+  <div class="bg-white w-full h-screen min-h-[40rem] flex justify-center items-center overflow-hidden">
+    <img src="" id="image" class="w-1/2 h-1/2 object-contain hidden">
+  </div>
+
+  <script type="module">
+    import * as Magick from 'https://knicknic.github.io/wasm-imagemagick/magickApi.js';
+
+    let button = document.getElementById("button")
+    button.addEventListener("click", await apply)
+
+    async function apply() {
+      let files = document.getElementById('files').files
+      if (files.length == 0) return alert('No image provided')
+
+      let [fileName, content] = await ReadFile(files[0]);
+      if (fileName.substring(0, 3) == "out") {
+        alert("Filename cannot start with 'out'")
+        document.getElementById('files').value = null
+        return
+      }
+
+      let ppi = document.getElementById('ppi').value
+      if (ppi == "") ppi = "300"
+
+      const cmd = ["convert", "-units", "PixelsPerInch", fileName, "-density", ppi, `out.${fileName.split('.').pop()}`];
+      let newProcessedFile = await Magick.Call([{ 'name': fileName, 'content': content }], cmd);
+
+      const blobUrl = URL.createObjectURL(newProcessedFile[0]['blob']);
+      let img = document.getElementById('image');
+      img.src = blobUrl
+      img.name = newProcessedFile[0]['name']
+      img.classList.remove('hidden')
+
+      downloadBlob(blobUrl, `out.${fileName.split('.').pop()}`)
+      document.getElementById('files').value = null
+    }
+
+    function ReadFile(file) {
+      // https://github.com/KnicKnic/WASM-ImageMagick/blob/88ef4c6fb2a11b640669aa06c56df4c4c51566f7/samples/cmdline/index.html
+      let readFile = Magick.CreatePromiseEvent();
+
+      let fr = new FileReader();
+      fr.onload = function (txt) {
+        let fileName = file.name
+
+        let encoded_txt = txt.target.result;
+        let content = new Uint8Array(encoded_txt);
+        let sourceFilename = fileName
+
+        readFile['resolve']([sourceFilename, content]);
+      }
+      fr.readAsArrayBuffer(file);
+
+      return readFile;
+    };
+
+    function downloadBlob(blobUrl, name) {
+      const link = document.createElement("a");
+
+      link.href = blobUrl;
+      link.download = name;
+
+      document.body.appendChild(link);
+
+      link.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window
+        })
+      );
+
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+
+</html>
